@@ -114,3 +114,5 @@ dmypy.json
 .pyre/
 
 .idea/*
+*.xml
+.DS_Store
