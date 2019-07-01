@@ -29,7 +29,7 @@ class BayesianLinearRegressor():
         """
         X_orig = X
         if self.basis_function is not None:
-            X = self.basis_function(X, self.basis_function_args)
+            X = self.basis_function(X, *self.basis_function_args)
 
         X = self.ones_for_bias_trick(X)
         self.posterior_cov = np.linalg.inv((1.0/self.noise_var) * np.matmul(X.T, X)
@@ -48,7 +48,7 @@ class BayesianLinearRegressor():
         :return:
         """
         if self.basis_function is not None:
-            x = self.basis_function(np.array([x]), self.basis_function_args)
+            x = self.basis_function(np.array([x]), *self.basis_function_args)
             x = self.ones_for_bias_trick(x)
             x = np.squeeze(x)
         else:
@@ -67,7 +67,7 @@ class BayesianLinearRegressor():
         :return:
         """
         if self.basis_function is not None:
-            X = self.basis_function(X, self.basis_function_args)
+            X = self.basis_function(X, *self.basis_function_args)
         X = self.ones_for_bias_trick(X)
         ml_cov = (1.0/self.prior_precision) * np.matmul(X, X.T) + self.noise_var * np.eye(X.shape[0])
         log_ml = self.log_gaussian_pdf(np.zeros(X.shape[0]), ml_cov, y)
@@ -81,14 +81,13 @@ class BayesianLinearRegressor():
         :param x:
         :return:
         """
-        norm_constant = np.sqrt(np.linalg.det(2*np.pi*cov))
-        exp_term = -0.5 * np.dot((x + mean).T, np.dot(np.linalg.inv(cov), (x + mean)))
-        log_prob = np.log(1.0/norm_constant) + exp_term
+        _, log_denom = np.linalg.slogdet(2*np.pi*cov)
+        exp_term = np.dot((x + mean).T, np.dot(np.linalg.inv(cov), (x + mean)))
+        log_prob = -0.5 * (log_denom + exp_term)
         return log_prob
 
     def visualise_line(self, X, y):
-        assert len(self.posterior_mean) == 2 or 'scalar' in self.basis_function.__name__, \
-            "Can only visualise 1D inputs currently :("
+        print("Note: can only visualise 1D inputs currently!")
         axes = plt.gca()
         plt.scatter(X[:, -1], y)
         low, high = axes.get_xlim()

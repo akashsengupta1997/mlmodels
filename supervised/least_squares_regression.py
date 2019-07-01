@@ -26,7 +26,7 @@ class LeastSquaresRegressor():
         """
         X_orig = X
         if self.basis_function is not None:
-            X = self.basis_function(X, self.basis_function_args)
+            X = self.basis_function(X, *self.basis_function_args)
 
         X = self.ones_for_bias_trick(X)
         self.weights = (np.linalg.inv(np.matmul(X.T, X))) @ (np.dot(X.T, y))
@@ -47,7 +47,7 @@ class LeastSquaresRegressor():
         :return: predicted output
         """
         if self.basis_function is not None:
-            x = self.basis_function(np.array([x]), self.basis_function_args)
+            x = self.basis_function(np.array([x]), *self.basis_function_args)
             x = self.ones_for_bias_trick(x)
             x = np.squeeze(x)
         else:
@@ -56,8 +56,7 @@ class LeastSquaresRegressor():
         return np.dot(x, self.weights)
 
     def visualise_line(self, X, y):
-        assert len(self.weights) == 2 or 'scalar' in self.basis_function.__name__, \
-            "Can only visualise 1D inputs currently :("
+        print("Note: can only visualise 1D inputs currently!")
         axes = plt.gca()
         plt.scatter(X[:, -1], y)
         low, high = axes.get_xlim()
