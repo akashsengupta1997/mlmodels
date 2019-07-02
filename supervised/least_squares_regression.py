@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from utils import ones_for_bias_trick
 
 
 class LeastSquaresRegressor():
@@ -8,13 +9,9 @@ class LeastSquaresRegressor():
     Gaussian noise (i.e. Gaussian likelihood function).
     Also assuming that data matrix X is full column rank (tall).
     """
-    def __init__(self, input_dims, basis_function, *args):
-        self.input_dims = input_dims
+    def __init__(self, basis_function, *basis_function_args):
         self.basis_function = basis_function
-        self.basis_function_args = args
-
-    def ones_for_bias_trick(self, X):
-        return np.concatenate([np.ones((X.shape[0], 1)), X], axis=1)
+        self.basis_function_args = basis_function_args
 
     def fit(self, X, y, estimate_var=True, visualise=False):
         """
@@ -28,7 +25,7 @@ class LeastSquaresRegressor():
         if self.basis_function is not None:
             X = self.basis_function(X, *self.basis_function_args)
 
-        X = self.ones_for_bias_trick(X)
+        X = ones_for_bias_trick(X)
         self.weights = (np.linalg.inv(np.matmul(X.T, X))) @ (np.dot(X.T, y))
         mse = np.linalg.norm((y - np.dot(X, self.weights)))
 
@@ -43,12 +40,14 @@ class LeastSquaresRegressor():
 
     def predict(self, x):
         """
-        :param x: test input vector
+        :param x: test input vector - only takes a single test sample at a time
+        #TODO might be a better idea to have this take a test input matrix X, with multiple
+        samples?
         :return: predicted output
         """
         if self.basis_function is not None:
             x = self.basis_function(np.array([x]), *self.basis_function_args)
-            x = self.ones_for_bias_trick(x)
+            x = ones_for_bias_trick(x)
             x = np.squeeze(x)
         else:
             x = np.concatenate([[1], [x]])

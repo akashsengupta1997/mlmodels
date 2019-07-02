@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from utils import ones_for_bias_trick
 
 
 class BayesianLinearRegressor():
@@ -7,7 +8,7 @@ class BayesianLinearRegressor():
     Bayesian linear regressor assuming Gaussian prior over weights and Gaussian noise (i.e.
     Gaussian likelihood) - allowing for exact inference.
     """
-    def __init__(self, prior_precision, noise_var, basis_function, *args):
+    def __init__(self, prior_precision, noise_var, basis_function, *basis_function_args):
         """
         :param prior_precision: reciprocal of Gaussian prior variance
         :param noise_var: Gaussian noise variance (for likelihood)
@@ -15,10 +16,7 @@ class BayesianLinearRegressor():
         self.prior_precision = prior_precision
         self.noise_var = noise_var
         self.basis_function = basis_function
-        self.basis_function_args = args
-
-    def ones_for_bias_trick(self, X):
-        return np.concatenate([np.ones((X.shape[0], 1)), X], axis=1)
+        self.basis_function_args = basis_function_args
 
     def compute_posterior(self, X, y, visualise=False):
         """
@@ -31,7 +29,7 @@ class BayesianLinearRegressor():
         if self.basis_function is not None:
             X = self.basis_function(X, *self.basis_function_args)
 
-        X = self.ones_for_bias_trick(X)
+        X = ones_for_bias_trick(X)
         self.posterior_cov = np.linalg.inv((1.0/self.noise_var) * np.matmul(X.T, X)
                                            + self.prior_precision * np.eye(X.shape[1]))
 
@@ -49,7 +47,7 @@ class BayesianLinearRegressor():
         """
         if self.basis_function is not None:
             x = self.basis_function(np.array([x]), *self.basis_function_args)
-            x = self.ones_for_bias_trick(x)
+            x = ones_for_bias_trick(x)
             x = np.squeeze(x)
         else:
             x = np.concatenate([[1], [x]])
@@ -68,7 +66,7 @@ class BayesianLinearRegressor():
         """
         if self.basis_function is not None:
             X = self.basis_function(X, *self.basis_function_args)
-        X = self.ones_for_bias_trick(X)
+        X = ones_for_bias_trick(X)
         ml_cov = (1.0/self.prior_precision) * np.matmul(X, X.T) + self.noise_var * np.eye(X.shape[0])
         log_ml = self.log_gaussian_pdf(np.zeros(X.shape[0]), ml_cov, y)
         return log_ml
