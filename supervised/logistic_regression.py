@@ -20,18 +20,29 @@ class LogisticRegressor():
         total_samples = X.shape[0]
         num_training_samples = int(total_samples * ratio)
         train_indices = np.random.choice(total_samples, (num_training_samples, ), False)
+        test_indices = np.delete(np.arange(total_samples), train_indices)
         X_train = X[train_indices]
         y_train = y[train_indices]
-        return X_train, y_train
+        X_test = X[test_indices]
+        y_test = y[test_indices]
+        return X_train, y_train, X_test, y_test
 
-    def fit(self, X, y, lr, epochs, optimiser='gd', visualise=False, train_test_ratio=0.7):
+    def compute_log_likelihood(self, X, y, weights):
+        ll_all = y * np.log(self.sigmoid(np.dot(X, weights))) \
+                 + (1 - y) * np.log(1 - self.sigmoid(np.dot(X, weights)))
+        return np.sum(ll_all)
+
+    def fit(self, X, y, lr, epochs, optimiser='gd', visualise_training=False,
+            train_test_ratio=0.7):
         """
 
         :param X:
         :param y:
         :param lr:
+        :param epochs:
         :param optimiser:
-        :param visualise:
+        :param visualise_training:
+        :param train_test_ratio:
         :return:
         """
         assert optimiser in ['gd', 'newton'], "Invalid optimiser!"
@@ -40,15 +51,30 @@ class LogisticRegressor():
             X = self.basis_function(X, *self.basis_function_args)
 
         X = ones_for_bias_trick(X)
-        X_train, y_train = self.split_training_test(X, y, train_test_ratio)
+        X_train, y_train, X_test, y_test = self.split_training_test(X, y, train_test_ratio)
         weights = np.random.randn(X.shape[1])
+        train_log_likelihoods = []
+        test_log_likelihoods = []
 
         for epoch in range(epochs):
             print("Epoch:", epoch)
             gradient = self.compute_gradient(X_train, y_train, weights)
             weights = weights + lr * gradient
+            if visualise_training:
+                train_log_likelihoods.append(self.compute_log_likelihood(X_train,
+                                                                         y_train,
+                                                                         weights))
+                test_log_likelihoods.append(self.compute_log_likelihood(X_test,
+                                                                        y_test,
+                                                                        weights))
 
         self.weights = weights
+        if visualise_training:
+            plt.figure()
+            plt.plot(np.arange(1, epochs+1), train_log_likelihoods, label='Training')
+            plt.plot(np.arange(1, epochs+1), test_log_likelihoods, label='Test')
+            plt.legend()
+            plt.show()
 
     def predict(self, X):
         """
@@ -84,6 +110,8 @@ class LogisticRegressor():
         plt.scatter(X[y == 0, 0], X[y == 0, 1], c='r', label='Class 0')
         plt.scatter(X[y == 1, 0], X[y == 1, 1], c='b', label='Class 1')
         if show:
+            plt.xlabel('x1')
+            plt.ylabel('x2')
             plt.show()
 
     def visualise_2d_input_contour(self, X, y):
