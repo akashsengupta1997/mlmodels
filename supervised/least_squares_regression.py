@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from utils import ones_for_bias_trick
 
-
+# TODO add regularisation term
 class LeastSquaresRegressor():
     """
     Least squares regression - i.e. maximum likelihood estimate of the weights, assuming
@@ -58,7 +58,7 @@ class LeastSquaresRegressor():
         print("Note: can only visualise 1D inputs currently!")
         axes = plt.gca()
         plt.scatter(X[:, -1], y)
-        low, high = axes.get_xlim()
+        low, high = X[:, -1].min(), X[:, -1].max()
         x_vals = np.linspace(low, high, 50)
         y_vals = list(map(self.predict, x_vals))
         if self.basis_function is None:
