@@ -16,24 +16,13 @@ class LogisticRegressor():
         sigmoid = self.sigmoid(np.dot(X, weights))
         return np.dot(X.T, y - sigmoid)
 
-    def split_training_test(self, X, y, ratio):
-        total_samples = X.shape[0]
-        num_training_samples = int(total_samples * ratio)
-        train_indices = np.random.choice(total_samples, (num_training_samples, ), False)
-        test_indices = np.delete(np.arange(total_samples), train_indices)
-        X_train = X[train_indices]
-        y_train = y[train_indices]
-        X_test = X[test_indices]
-        y_test = y[test_indices]
-        return X_train, y_train, X_test, y_test
-
     def compute_log_likelihood(self, X, y, weights):
         ll_all = y * np.log(self.sigmoid(np.dot(X, weights))) \
                  + (1 - y) * np.log(1 - self.sigmoid(np.dot(X, weights)))
         return np.sum(ll_all)
 
-    def fit(self, X, y, lr, epochs, optimiser='gd', visualise_training=False,
-            train_test_ratio=0.7):
+    def fit(self, X_train, y_train, lr, epochs,  X_val, y_val, optimiser='gd',
+            visualise_training=False):
         """
 
         :param X:
@@ -46,13 +35,15 @@ class LogisticRegressor():
         :return:
         """
         assert optimiser in ['gd', 'newton'], "Invalid optimiser!"
-        X_orig = X
-        if self.basis_function is not None:
-            X = self.basis_function(X, *self.basis_function_args)
 
-        X = ones_for_bias_trick(X)
-        X_train, y_train, X_test, y_test = self.split_training_test(X, y, train_test_ratio)
-        weights = np.random.randn(X.shape[1])
+        if self.basis_function is not None:
+            X_train = self.basis_function(X_train, *self.basis_function_args)
+            X_val = self.basis_function(X_val, *self.basis_function_args)
+
+        X_train = ones_for_bias_trick(X_train)
+        X_val = ones_for_bias_trick(X_val)
+
+        weights = np.random.randn(X_train.shape[1])
         train_log_likelihoods = []
         test_log_likelihoods = []
 
@@ -64,10 +55,9 @@ class LogisticRegressor():
                 train_log_likelihoods.append(self.compute_log_likelihood(X_train,
                                                                          y_train,
                                                                          weights))
-                test_log_likelihoods.append(self.compute_log_likelihood(X_test,
-                                                                        y_test,
+                test_log_likelihoods.append(self.compute_log_likelihood(X_val,
+                                                                        y_val,
                                                                         weights))
-
         self.weights = weights
         if visualise_training:
             plt.figure()

@@ -18,25 +18,6 @@ def scalar_polynomial(X, degree):
 
     return X_expanded
 
-#
-# def gaussian_rbf(X, centres, s):
-#     """
-#     Gaussian radial basis function expansion, with RBFs centred around points given in centres.
-#     :param X:
-#     :param s:
-#     :return:
-#     """
-#     N = X.shape[0]
-#     M = centres.shape[0]
-#     X_expanded = np.zeros((N, M))
-#     for m in range(M):
-#         Z = X - np.tile(centres[m, :], (N, 1))
-#         X_expanded[:, m] = np.exp(-(0.5/s**2) * np.diag(np.matmul(Z, Z.T)))
-#
-#     # print('here')
-#     # print(X)
-#     return X_expanded
-
 
 def gaussian_rbf(X, centres, s):
     """
@@ -53,7 +34,3 @@ def gaussian_rbf(X, centres, s):
     ones_X = np.ones(X.shape[0])
     r2 = np.outer(X2, ones_Z) - 2 * np.dot(X, centres.T) + np.outer(ones_X, Z2)
     return np.exp(-0.5 / s ** 2 * r2)
-
-# X = np.random.randn(10, 1)
-# gaussian_rbf(X, X, 2.0)
-# gaussian_rbf2(X, X, 2.0)

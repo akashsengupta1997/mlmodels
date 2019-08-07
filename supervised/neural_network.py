@@ -4,12 +4,14 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class NeuralNetwork():
-    def __init__(self, input_dims, hidden_layer_nodes, weight_init_var=0.1):
+    def __init__(self, input_dims, hidden_layer_nodes, hidden_layer_activations,
+                 weight_init_var=0.1):
         self.num_hidden_layers = len(hidden_layer_nodes)
         self.hidden_layer_weights = self.initialise_weights(hidden_layer_nodes,
                                                             input_dims,
                                                             weight_init_var=weight_init_var)
         self.output_weights = np.random.randn(hidden_layer_nodes[-1] + 1, 1) * weight_init_var
+        self.hidden_layer_activations = hidden_layer_activations
 
     def initialise_weights(self, layer_nodes, input_dims, weight_init_var):
         layer_weights = [None] * self.num_hidden_layers
@@ -21,9 +23,6 @@ class NeuralNetwork():
         return layer_weights
 
     def ones_for_bias_trick(self, X):
-        return np.concatenate([X, np.ones((1, X.shape[1]))], axis=0)
-
-    def ones_for_bias_trick_batched(self, X):
         return np.concatenate([X, np.ones((X.shape[0], 1, 1))], axis=1)
 
     def sigmoid(self, x):
@@ -40,14 +39,8 @@ class NeuralNetwork():
         der[der > 0] = 1
         return der
 
-    def sigmoid_derivative_matrix(self, Y):
-        diags = self.sigmoid_derivative(Y)
-        der_matrix = np.zeros((Y.shape[0], Y.shape[1], Y.shape[1]))
-        der_matrix[:, np.arange(Y.shape[1]), np.arange(Y.shape[1])] = np.squeeze(diags)
-        return der_matrix
-
-    def relu_derivative_matrix(self, Y):
-        diags = self.relu_derivative(Y)
+    def activation_derivative_matrix(self, Y, activation_derivative):
+        diags = activation_derivative(Y)
         der_matrix = np.zeros((Y.shape[0], Y.shape[1], Y.shape[1]))
         der_matrix[:, np.arange(Y.shape[1]), np.arange(Y.shape[1])] = np.squeeze(diags)
         return der_matrix
@@ -66,21 +59,25 @@ class NeuralNetwork():
 
     def forward_pass(self, X):
         hidden_layer_outputs = [None] * self.num_hidden_layers
-        X = self.ones_for_bias_trick_batched(X)
+        X = self.ones_for_bias_trick(X)
 
         for layer in range(self.num_hidden_layers):
             W = self.hidden_layer_weights[layer]
             Z = np.matmul(W, X)
-            Y = self.relu(Z)
+            activation = self.hidden_layer_activations[layer]
+            if activation == 'relu':
+                Y = self.relu(Z)
+            elif activation == 'sigmoid':
+                Y = self.sigmoid(Z)
             hidden_layer_outputs[layer] = Y
-            X = self.ones_for_bias_trick_batched(Y)
+            X = self.ones_for_bias_trick(Y)
 
         Z_final = np.matmul(self.output_weights.T, X)
         y_output = np.squeeze(self.sigmoid(Z_final))
         return hidden_layer_outputs, y_output
 
     def backward_pass(self, hidden_layer_outputs, y_output, y_target, X):
-        hidden_layer_inputs = [self.ones_for_bias_trick_batched(Y) for Y in
+        hidden_layer_inputs = [self.ones_for_bias_trick(Y) for Y in
                                [X] + hidden_layer_outputs]
         hidden_layer_weight_updates = [None] * self.num_hidden_layers
 
@@ -94,7 +91,14 @@ class NeuralNetwork():
         for layer in reversed(range(self.num_hidden_layers)):
             X = hidden_layer_inputs[layer]
             Y = hidden_layer_outputs[layer]
-            activation_derivative_matrix = self.relu_derivative_matrix(Y)
+            activation = self.hidden_layer_activations[layer]
+            if activation == 'relu':
+                activation_derivative_matrix = self.activation_derivative_matrix(Y,
+                                                                                 self.relu_derivative)
+            elif activation == 'sigmoid':
+                activation_derivative_matrix = self.activation_derivative_matrix(Y,
+                                                                                 self.sigmoid_derivative)
+
             if layer == self.num_hidden_layers - 1:
                 dz = np.matmul(activation_derivative_matrix,
                                np.matmul(np.tile(self.output_weights[:-1], [Y.shape[0], 1, 1]),
@@ -118,13 +122,16 @@ class NeuralNetwork():
         y_batch = y[batch_indices]
         return X_batch, y_batch
 
-    def fit(self, X, y, lr, epochs, steps_per_epoch, batch_size,
-            visualise_training=False):
-        epoch_losses = []
+    def fit(self, X_train, y_train, lr, epochs, steps_per_epoch, batch_size, X_val, y_val,
+            val_steps_per_epoch, val_batch_size, visualise_training=False):
+        epoch_losses_train = []
+        epoch_losses_val = []
+
         for epoch in range(epochs):
-            losses = []
+            losses_train = []
+            losses_val = []
             for step in range(steps_per_epoch):
-                X_batch, y_target_batch = self.create_batches(X, y, batch_size)
+                X_batch, y_target_batch = self.create_batches(X_train, y_train, batch_size)
                 hidden_layer_outputs, y_output = self.forward_pass(X_batch)
                 hidden_layer_weight_updates, dw_output = self.backward_pass(hidden_layer_outputs,
                                                                             y_output,
@@ -136,12 +143,20 @@ class NeuralNetwork():
                     self.hidden_layer_weights[layer] = W - lr * dW
                 self.output_weights = self.output_weights - lr * dw_output
                 loss = self.binary_crossentropy_loss_batched(y_output, y_target_batch)
-                losses.append(loss)
-            epoch_losses.append(np.mean(losses))
+                losses_train.append(loss)
+            epoch_losses_train.append(np.mean(losses_train))
+
+            for step in range(val_steps_per_epoch):
+                X_batch, y_target_batch = self.create_batches(X_val, y_val, val_batch_size)
+                _, y_output = self.forward_pass(X_batch)
+                loss = self.binary_crossentropy_loss_batched(y_output, y_target_batch)
+                losses_val.append(loss)
+            epoch_losses_val.append(np.mean(losses_val))
 
         if visualise_training:
             plt.figure()
-            plt.plot(np.arange(1, epochs + 1), epoch_losses, label='Training')
+            plt.plot(np.arange(1, epochs + 1), epoch_losses_train, label='Train')
+            plt.plot(np.arange(1, epochs + 1), epoch_losses_val, label='Validation')
             plt.legend()
             plt.show()
 
