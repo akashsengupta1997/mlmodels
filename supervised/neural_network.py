@@ -1,17 +1,24 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pickle
 
 
 class NeuralNetwork():
     def __init__(self, input_dims, hidden_layer_nodes, hidden_layer_activations,
-                 weight_init_var=0.1):
+                 weight_init_var=0.5, import_weights_file=None):
         self.num_hidden_layers = len(hidden_layer_nodes)
-        self.hidden_layer_weights = self.initialise_weights(hidden_layer_nodes,
-                                                            input_dims,
-                                                            weight_init_var=weight_init_var)
-        self.output_weights = np.random.randn(hidden_layer_nodes[-1] + 1, 1) * weight_init_var
-        self.hidden_layer_activations = hidden_layer_activations
+
+        if import_weights_file is not None:
+            with open(import_weights_file, 'rb') as f:
+                self.hidden_layer_weights, self.output_weights, self.hidden_layer_activations = pickle.load(f)
+
+        else:
+            self.hidden_layer_weights = self.initialise_weights(hidden_layer_nodes,
+                                                                input_dims,
+                                                                weight_init_var=weight_init_var)
+            self.output_weights = np.random.randn(hidden_layer_nodes[-1] + 1, 1) * weight_init_var
+            self.hidden_layer_activations = hidden_layer_activations
 
     def initialise_weights(self, layer_nodes, input_dims, weight_init_var):
         layer_weights = [None] * self.num_hidden_layers
@@ -25,37 +32,98 @@ class NeuralNetwork():
     def ones_for_bias_trick(self, X):
         return np.concatenate([X, np.ones((X.shape[0], 1, 1))], axis=1)
 
-    def sigmoid(self, x):
-        return 1.0 / (1.0 + np.exp(-x))
+    def sigmoid(self, z):
+        return 1.0 / (1.0 + np.exp(-z))
 
     def sigmoid_derivative(self, y):
         return y * (1-y)
 
-    def relu(self, x):
-        return np.maximum(0, x)
+    def relu(self, z):
+        return np.maximum(0, z)
 
     def relu_derivative(self, y):
         der = y
         der[der > 0] = 1
         return der
 
+    def softmax(self, z):
+        """
+        Computes softmax of x in a numerically stable way (preventing NaNs due to too-large
+        exponents).
+        :param z: (batch size, num classes, 1) array.
+        :return: softmax(z)
+        """
+        # All the weird expanding and tiling is necessary to deal with batches...
+        num_classes = z.shape[1]
+        shifted_z = z - np.tile(np.expand_dims(np.amax(z, axis=1), axis=-1),
+                                [1, num_classes, 1])
+        exps = np.exp(shifted_z)
+        sum = np.tile(np.expand_dims(np.sum(exps, axis=1), axis=-1), [1, num_classes, 1])
+        softmax = np.divide(exps, sum)
+        return softmax
+
+    def softmax_derivative_matrix(self, Y):
+        """
+        Creates activation derivative matrix for softmax (which is not one-to-one).
+        :param Y: array containing batch of softmax outputs from (output) neural network layer.
+        Has shape (batch_size, num_classes, 1)
+        :return: Array containing batch of activation derivative matrices with shape
+        (batch_size, num_classes, num_classes)
+        """
+        diags = Y * (1-Y)
+        der_matrix = - np.matmul(Y, np.transpose(Y, axes=[0, 2, 1]))
+        der_matrix[:, np.arange(Y.shape[1]), np.arange(Y.shape[1])] = np.squeeze(diags)
+        return der_matrix
+
     def activation_derivative_matrix(self, Y, activation_derivative):
+        """
+        Creates activation derivative matrix for one-to-one activation functions, such as
+        sigmoid and relu. Not for use with softmax (which is not one-to-one).
+        :param Y: array containing batch of activations from neural network layer.
+        :param activation_derivative: function to compute derivative, depending on activation
+        used.
+        :return: Array containing batch of activation derivative matrices with shape
+        (batch_size, Y.shape[1], Y.shape[1])
+        """
         diags = activation_derivative(Y)
         der_matrix = np.zeros((Y.shape[0], Y.shape[1], Y.shape[1]))
         der_matrix[:, np.arange(Y.shape[1]), np.arange(Y.shape[1])] = np.squeeze(diags)
         return der_matrix
 
     def binary_crossentropy_loss(self, y_output, y_target):
-        return -(y_target * np.log(y_output) + (1 - y_target) * np.log(1 - y_output))
-
-    def binary_crossentropy_derivative(self, y_output, y_target):
-        return (y_output - y_target)/(y_output * (1 - y_output))
-
-    def binary_crossentropy_loss_batched(self, y_output, y_target):
+        """
+        :param y_output: (batch size,) array of neural network outputs.
+        :param y_target: (batch size,) array of target outputs.
+        :return: Binary cross-entropy loss between batch of outputs and targets.
+        """
         return np.mean(-(y_target * np.log(y_output) + (1 - y_target) * np.log(1 - y_output)))
 
-    def binary_crossentropy_derivative_batched(self, y_output, y_target):
+    def binary_crossentropy_derivative(self, y_output, y_target):
+        """
+        :param y_output: (batch size,) array of neural network outputs.
+        :param y_target: (batch size,) array of target outputs.
+        :return: Derivative of binary cross-entropy loss w.r.t y_output
+        (array of same shape as y_output)
+        """
         return np.divide(y_output - y_target, y_output * (1 - y_output))
+
+    def categorical_crossentropy_loss(self, y_output, y_target):
+        """
+        :param y_output: (batch size, num classes, 1) array of neural network outputs
+        :param y_target: (batch size, num classes, 1) array of OHE target outputs
+        :return: Multi-class cross-entropy loss between batch of outputs and targets.
+        """
+        y_target_transpose = np.transpose(y_target, axes=[0, 2, 1])
+        log_y_output = np.log(y_output)
+        return np.mean(np.matmul(y_target_transpose, log_y_output))
+
+    def categorical_crossentropy_derivative(self, y_output, y_target):
+        """
+        :param y_output: (batch size, num classes, 1) array of neural network outputs
+        :param y_target: (batch size, num classes, 1) array of target outputs
+        :return: Derivative of CCE loss w.r.t. y_output (array of same shape as y_output)
+        """
+        return np.divide(y_target, y_output)
 
     def forward_pass(self, X):
         hidden_layer_outputs = [None] * self.num_hidden_layers
@@ -81,7 +149,7 @@ class NeuralNetwork():
                                [X] + hidden_layer_outputs]
         hidden_layer_weight_updates = [None] * self.num_hidden_layers
 
-        dy_output = self.binary_crossentropy_derivative_batched(y_output, y_target)
+        dy_output = self.binary_crossentropy_derivative(y_output, y_target)
         final_activation_derivative = self.sigmoid_derivative(y_output)
         dz = np.expand_dims(np.expand_dims(final_activation_derivative * dy_output, axis=-1),
                             axis=-1)
@@ -123,16 +191,20 @@ class NeuralNetwork():
         return X_batch, y_batch
 
     def fit(self, X_train, y_train, lr, epochs, steps_per_epoch, batch_size, X_val, y_val,
-            val_steps_per_epoch, val_batch_size, visualise_training=False):
+            val_steps_per_epoch, val_batch_size, visualise_training=False, epochs_per_save=100,
+            save_name=None):
         epoch_losses_train = []
         epoch_losses_val = []
+        machine_eps = np.finfo(float).eps
 
         for epoch in range(epochs):
+            print("Epoch", epoch)
             losses_train = []
             losses_val = []
             for step in range(steps_per_epoch):
                 X_batch, y_target_batch = self.create_batches(X_train, y_train, batch_size)
                 hidden_layer_outputs, y_output = self.forward_pass(X_batch)
+                y_output = np.clip(y_output, machine_eps, 1.0-machine_eps)
                 hidden_layer_weight_updates, dw_output = self.backward_pass(hidden_layer_outputs,
                                                                             y_output,
                                                                             y_target_batch,
@@ -142,16 +214,28 @@ class NeuralNetwork():
                     dW = hidden_layer_weight_updates[layer]
                     self.hidden_layer_weights[layer] = W - lr * dW
                 self.output_weights = self.output_weights - lr * dw_output
-                loss = self.binary_crossentropy_loss_batched(y_output, y_target_batch)
+                loss = self.binary_crossentropy_loss(y_output, y_target_batch)
                 losses_train.append(loss)
             epoch_losses_train.append(np.mean(losses_train))
 
             for step in range(val_steps_per_epoch):
                 X_batch, y_target_batch = self.create_batches(X_val, y_val, val_batch_size)
                 _, y_output = self.forward_pass(X_batch)
-                loss = self.binary_crossentropy_loss_batched(y_output, y_target_batch)
+                y_output = np.clip(y_output,machine_eps, 1.0-machine_eps)
+                loss = self.binary_crossentropy_loss(y_output, y_target_batch)
                 losses_val.append(loss)
             epoch_losses_val.append(np.mean(losses_val))
+            print("Training loss", np.mean(losses_train))
+            print("Validation loss", np.mean(losses_val))
+
+            if epochs_per_save > 0 and epoch % epochs_per_save == 0:
+                if save_name is not None:
+                    with open(save_name, 'wb') as f:
+                        pickle.dump([self.hidden_layer_weights,
+                                     self.output_weights,
+                                     self.hidden_layer_activations],
+                                    f)
+                        print('Saved!')
 
         if visualise_training:
             plt.figure()

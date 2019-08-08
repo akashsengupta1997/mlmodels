@@ -17,8 +17,11 @@ class LogisticRegressor():
         return np.dot(X.T, y - sigmoid)
 
     def compute_log_likelihood(self, X, y, weights):
-        ll_all = y * np.log(self.sigmoid(np.dot(X, weights))) \
-                 + (1 - y) * np.log(1 - self.sigmoid(np.dot(X, weights)))
+        Z = self.sigmoid(np.dot(X, weights))
+        epsilon = np.finfo(float).eps
+        Z = np.clip(Z, epsilon, 1.0-epsilon)
+
+        ll_all = y * np.log(Z) + (1 - y) * np.log(1 - Z)
         return np.sum(ll_all)
 
     def fit(self, X_train, y_train, lr, epochs,  X_val, y_val, optimiser='gd',
@@ -43,7 +46,7 @@ class LogisticRegressor():
         X_train = ones_for_bias_trick(X_train)
         X_val = ones_for_bias_trick(X_val)
 
-        weights = np.random.randn(X_train.shape[1])
+        weights = np.random.randn(X_train.shape[1]) * 0.5
         train_log_likelihoods = []
         test_log_likelihoods = []
 
