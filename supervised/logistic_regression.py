@@ -14,10 +14,25 @@ class LogisticRegressor():
         return 1.0 / (1.0 + np.exp(-x))
 
     def compute_gradient(self, X, y, weights):
+        """
+        Computes gradient of log-likelihood w.r.t logistic regression weights
+        :param X: Input data array with shape (num samples, X dims, 1).
+        :param y: Target array with shape (num samples,).
+        :param weights: Logistic regression weights array with shape (X dims,)
+        :return: gradient of LL.
+        """
         sigmoid = self.sigmoid(np.dot(X, weights))
         return np.dot(X.T, y - sigmoid)
 
     def compute_log_likelihood(self, X, y, weights, avg=False):
+        """
+        Computes log-likelihood of target labels given inputs X and weights.
+        :param X: Input data array with shape (num samples, X dims, 1).
+        :param y: Target array with shape (num samples,).
+        :param weights: Logistic regression weights array with shape (X dims,)
+        :param avg: bool flag - average log likelihood (instead of sum)?
+        :return: log-likelihood.
+        """
         Z = self.sigmoid(np.dot(X, weights))
         epsilon = np.finfo(float).eps
         Z = np.clip(Z, epsilon, 1.0-epsilon)
@@ -33,7 +48,7 @@ class LogisticRegressor():
         Create sequential batches of data with size = batch_size.
         :param X: Input data array with shape (num_samples, input_dims, 1). Should be SHUFFLED
         to prevent ordering of sequential batches from being an issue.
-        :param y: Target array with shape (num_samples,) or (num_samples, num_classes, 1).
+        :param y: Target array with shape (num_samples,).
         Should be SHUFFLED to prevent ordering of sequential batches from being an issue.
         :param batch_size: number of samples in one minibatch
         :param step: current step number in current epoch.
@@ -53,22 +68,22 @@ class LogisticRegressor():
 
         return X_batch, y_batch
 
-    def fit(self, X_train, y_train, lr, epochs, batch_size, X_val, y_val, optimiser='gd',
+    def fit(self, X_train, y_train, lr, epochs, batch_size, X_val, y_val, optimiser='sga',
             visualise_training=False, avg_ll=False):
         """
-        
-        :param X_train: 
-        :param y_train: 
-        :param lr: 
-        :param epochs: 
-        :param batch_size:
-        :param X_val: 
-        :param y_val: 
-        :param optimiser: 
-        :param visualise_training: 
-        :return: 
-        """""
-        assert optimiser in ['gd', 'newton'], "Invalid optimiser!"
+        Update logistic regression weights using gradient-based optimisation algorithm.
+        :param X_train: Training input data array with shape (num_samples, input_dims, 1).
+        :param y_train: Training target array with shape (num_samples,).
+        :param lr: Learning rate for gradient ascent.
+        :param epochs: Number of epochs
+        :param batch_size: Minibatch size (for batch logistic regression).
+        :param X_val: Validation input data array with shape (num_val_samples, input_dims, 1).
+        :param y_val: Validation target array with shape (num_val_samples,).
+        :param optimiser: Optimisation algorithm to be used - can either be stochastic gradient
+        ascent or newtons method #TODO implement newtons method.
+        :param visualise_training: bool flag - visualise ll and accuracy vs epoch curves.
+        """
+        assert optimiser in ['sga', 'newton'], "Invalid optimiser!"
 
         X_orig_train = X_train
         X_orig_val = X_val
@@ -123,6 +138,12 @@ class LogisticRegressor():
             plt.show()
 
     def compute_accuracy(self, X_orig, y_target):
+        """
+        Compute classification accuracy.
+        :param X_orig: Input data array (without bias trick ones).
+        :param y_target: Target labels array.
+        :return: accuracy.
+        """
         y_output = self.predict(X_orig)
         y_output = np.around(y_output)
         matches = np.sum(y_output == y_target)
@@ -131,9 +152,8 @@ class LogisticRegressor():
 
     def predict(self, X):
         """
-        Returns probability of each input in X belonging to class 1.
         :param X: test input matrix - rows = test inputs, columns = features
-        :return:
+        :return: probability of each input in X belonging to class 1.
         """
         if self.basis_function is not None:
             X = self.basis_function(X, *self.basis_function_args)
