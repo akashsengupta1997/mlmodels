@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from utils import ones_for_bias_trick
+import math
 
 
 class LogisticRegressor():
@@ -16,28 +17,61 @@ class LogisticRegressor():
         sigmoid = self.sigmoid(np.dot(X, weights))
         return np.dot(X.T, y - sigmoid)
 
-    def compute_log_likelihood(self, X, y, weights):
+    def compute_log_likelihood(self, X, y, weights, avg=False):
         Z = self.sigmoid(np.dot(X, weights))
         epsilon = np.finfo(float).eps
         Z = np.clip(Z, epsilon, 1.0-epsilon)
 
         ll_all = y * np.log(Z) + (1 - y) * np.log(1 - Z)
-        return np.sum(ll_all)
+        if not avg:
+            return np.sum(ll_all)
+        else:
+            return np.mean(ll_all)
 
-    def fit(self, X_train, y_train, lr, epochs,  X_val, y_val, optimiser='gd',
-            visualise_training=False):
+    def create_batches(self, X, y, batch_size, step):
         """
+        Create sequential batches of data with size = batch_size.
+        :param X: Input data array with shape (num_samples, input_dims, 1). Should be SHUFFLED
+        to prevent ordering of sequential batches from being an issue.
+        :param y: Target array with shape (num_samples,) or (num_samples, num_classes, 1).
+        Should be SHUFFLED to prevent ordering of sequential batches from being an issue.
+        :param batch_size: number of samples in one minibatch
+        :param step: current step number in current epoch.
+        :return: Batch of training samples and targets.
+        """
+        index_start = batch_size * step
+        index_end = index_start + batch_size
 
-        :param X:
-        :param y:
-        :param lr:
-        :param epochs:
-        :param optimiser:
-        :param visualise_training:
-        :param train_test_ratio:
-        :return:
+        if index_end < X.shape[0]:
+            batch_indices = np.arange(index_start, index_end)
+            X_batch = X[batch_indices]
+            y_batch = y[batch_indices]
+        else:
+            batch_indices = np.arange(index_start, X.shape[0])
+            X_batch = X[batch_indices]
+            y_batch = y[batch_indices]
+
+        return X_batch, y_batch
+
+    def fit(self, X_train, y_train, lr, epochs, batch_size, X_val, y_val, optimiser='gd',
+            visualise_training=False, avg_ll=False):
         """
+        
+        :param X_train: 
+        :param y_train: 
+        :param lr: 
+        :param epochs: 
+        :param batch_size:
+        :param X_val: 
+        :param y_val: 
+        :param optimiser: 
+        :param visualise_training: 
+        :return: 
+        """""
         assert optimiser in ['gd', 'newton'], "Invalid optimiser!"
+
+        X_orig_train = X_train
+        X_orig_val = X_val
 
         if self.basis_function is not None:
             X_train = self.basis_function(X_train, *self.basis_function_args)
@@ -49,25 +83,51 @@ class LogisticRegressor():
         weights = np.random.randn(X_train.shape[1]) * 0.5
         train_log_likelihoods = []
         test_log_likelihoods = []
+        train_accs = []
+        test_accs = []
+        steps_per_epoch = math.ceil(X_train.shape[0]/batch_size)
 
         for epoch in range(epochs):
             print("Epoch:", epoch)
-            gradient = self.compute_gradient(X_train, y_train, weights)
-            weights = weights + lr * gradient
+
+            for step in range(steps_per_epoch):
+                X_batch, y_batch = self.create_batches(X_train, y_train, batch_size, step)
+                gradient = self.compute_gradient(X_batch, y_batch, weights)
+                weights = weights + lr * gradient
+
+            self.weights = weights
+
             if visualise_training:
                 train_log_likelihoods.append(self.compute_log_likelihood(X_train,
                                                                          y_train,
-                                                                         weights))
+                                                                         weights,
+                                                                         avg=avg_ll))
                 test_log_likelihoods.append(self.compute_log_likelihood(X_val,
                                                                         y_val,
-                                                                        weights))
-        self.weights = weights
+                                                                        weights,
+                                                                        avg=avg_ll))
+                train_accs.append(self.compute_accuracy(X_orig_train, y_train))
+                test_accs.append(self.compute_accuracy(X_orig_val, y_val))
+
         if visualise_training:
-            plt.figure()
+            plt.figure(1)
             plt.plot(np.arange(1, epochs+1), train_log_likelihoods, label='Training')
             plt.plot(np.arange(1, epochs+1), test_log_likelihoods, label='Test')
             plt.legend()
             plt.show()
+
+            plt.figure(2)
+            plt.plot(np.arange(1, epochs+1), train_accs, label='Training')
+            plt.plot(np.arange(1, epochs + 1), test_accs, label='Test')
+            plt.legend()
+            plt.show()
+
+    def compute_accuracy(self, X_orig, y_target):
+        y_output = self.predict(X_orig)
+        y_output = np.around(y_output)
+        matches = np.sum(y_output == y_target)
+        accuracy = matches/float(y_output.shape[0])
+        return accuracy
 
     def predict(self, X):
         """
@@ -82,15 +142,6 @@ class LogisticRegressor():
         return self.sigmoid(np.dot(X, self.weights))
 
     def predict_on_grid(self, xx, yy):
-        """
-
-        :param X:
-        :param x_min:
-        :param x_max:
-        :param y_min:
-        :param y_max:
-        :return:
-        """
         X_visualise = np.stack([xx, yy], axis=-1)
         X_visualise = np.reshape(X_visualise,
                                  (X_visualise.shape[0] * X_visualise.shape[1], -1))
