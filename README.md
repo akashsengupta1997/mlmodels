@@ -18,7 +18,7 @@ TODO:
 
 #### Linear regression with polynomial basis funtions
 `
-regressor = LeastSquaresRegressor(scalar_polynomial, 4)  
+regressor = LeastSquaresRegressor(scalar_polynomial, 4) 
 regressor.fit(X, y, visualise=True)
 `
 
