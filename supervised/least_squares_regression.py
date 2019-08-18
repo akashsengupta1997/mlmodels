@@ -24,9 +24,11 @@ class LeastSquaresRegressor():
         X_orig = X
         if self.basis_function is not None:
             X = self.basis_function(X, *self.basis_function_args)
+            print('X', np.amax(X), np.amin(X))
 
         X = ones_for_bias_trick(X)
         self.weights = (np.linalg.inv(np.matmul(X.T, X))) @ (np.dot(X.T, y))
+        print('cond', np.linalg.cond(np.matmul(X.T, X)))
         mse = np.linalg.norm((y - np.dot(X, self.weights)))
 
         if visualise:

@@ -20,7 +20,7 @@ class BayesianLinearRegressor():
 
     def compute_posterior(self, X, y, visualise=False):
         """
-
+        Compute posterior probability of weights given training data, i.e. p(w|X, y)
         :param X:
         :param y:
         :return:
@@ -41,9 +41,10 @@ class BayesianLinearRegressor():
 
     def compute_predictive_distribution(self, x):
         """
-
-        :param x:
-        :return:
+        Compute predictive distribution of output y*, given test input x*, training data X, y,
+        i.e. p(y*|x*, X, y)
+        :param x: test input vector.
+        :return: predictive distribution mean vector and covariance matrix.
         """
         if self.basis_function is not None:
             x = self.basis_function(np.array([x]), *self.basis_function_args)
@@ -52,14 +53,14 @@ class BayesianLinearRegressor():
         else:
             x = np.concatenate([[1], [x]])
 
-        predictive_mean = np.dot(self.posterior_mean, x)
+        predictive_mean = np.dot(np.squeeze(self.posterior_mean), x)
         predictive_cov = np.dot(x.T, np.dot(self.posterior_cov, x)) + self.noise_var
 
         return predictive_mean, predictive_cov
 
     def compute_log_marginal_likelihood(self, X, y):
         """
-
+        Computes model evidence/log marginal likelihood - i.e. p(y|X)
         :param X:
         :param y:
         :return:
@@ -73,7 +74,7 @@ class BayesianLinearRegressor():
 
     def log_gaussian_pdf(self, mean, cov, x):
         """
-
+        Computes log of gaussian with given mean and cov at input vector x.
         :param mean:
         :param cov:
         :param x:
@@ -104,4 +105,5 @@ class BayesianLinearRegressor():
                 round(self.posterior_mean[0], 2),
                 round(self.posterior_mean[1], 2)),
                      transform=axes.transAxes)
+        axes.legend(['Predictive distribution mean', '+/- 1 s.d.'])
         plt.show()

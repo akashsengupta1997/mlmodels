@@ -3,10 +3,10 @@ import numpy as np
 
 def scalar_polynomial(X, degree):
     """
-
-    :param X:
-    :param degree:
-    :return:
+    Polynomial basis function expansion of scalar inputs.
+    :param X: Array of scalar inputs - shape (num_samples,) or (num_samples,1)
+    :param degree: Degree of polynomial.
+    :return: Expanded inputs.
     """
     assert len(X.shape) <= 2, "scalar polynomial basis function only takes 1D input features"
     if len(X.shape) == 2:
@@ -22,9 +22,9 @@ def scalar_polynomial(X, degree):
 def gaussian_rbf(X, centres, s):
     """
     Gaussian radial basis function expansion, with RBFs centred around points given in centres.
-    :param X:
-    :param s:
-    :return:
+    :param X: Array of inputs.
+    :param s: variance of Gaussians.
+    :return: Expanded inputs.
     """
     if X.ndim != 2:
         X = np.expand_dims(X, 1)
@@ -33,4 +33,4 @@ def gaussian_rbf(X, centres, s):
     ones_Z = np.ones(centres.shape[0])
     ones_X = np.ones(X.shape[0])
     r2 = np.outer(X2, ones_Z) - 2 * np.dot(X, centres.T) + np.outer(ones_X, Z2)
-    return np.exp(-0.5 / s ** 2 * r2)
+    return np.exp((-0.5 / s ** 2) * r2)

@@ -205,6 +205,7 @@ class LogisticRegressor():
                                  linewidth=0, antialiased=False)
         axes.scatter(X[y == 0, 0], X[y == 0, 1], zs=0, c='r', label='Class 0')
         axes.scatter(X[y == 1, 0], X[y == 1, 1], zs=0, c='b', label='Class 1')
+        plt.title('Probability of Class 1')
         plt.show()
 
 
