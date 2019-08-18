@@ -18,6 +18,9 @@ TODO:
 
 #### Linear regression with polynomial basis funtions
 
+`regressor = LeastSquaresRegressor(scalar_polynomial, 4)
+regressor.fit(X, y, visualise=True)`
+
 #### Bayesian linear regression with polynomial basis functions
 
 #### Logistic Regression with radial basis functions
