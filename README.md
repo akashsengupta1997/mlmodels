@@ -6,11 +6,12 @@ Currently implemented:
 * Bayesian linear regression
 * Logistic regression
 * Neural networks
+
 Also includes polynomial and radial basis functions.
 
 TODO:
 * k-means
-* k Nearest neighbours
+* k-NN (+ PCA for low dimensional embedding before k-NN)
 * Gaussian processes (with basic covariance functions like squared exponential).
 
 
